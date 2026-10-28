@@ -1,0 +1,38 @@
+cat > .gitignore <<'EOF'
+# Mac
+.DS_Store
+
+# Python
+**/.venv/
+**/venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# React
+**/node_modules/
+frontend/dist/
+frontend/build/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Temporary files and generated output
+backend/uploads/
+backend/debug_audiveris/
+debug_audiveris/
+*.omr
+*.mxl
+*.pdf
+
+# Local databases and logs
+*.db
+*.sqlite
+*.sqlite3
+*.log
+EOF

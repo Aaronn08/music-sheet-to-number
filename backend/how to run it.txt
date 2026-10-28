@@ -1,0 +1,12 @@
+cd "/Users/aaronchan/Documents/coba coding/sheet-to-number/backend"
+
+source .venv/bin/activate
+
+export AUDIVERIS_CMD="$HOME/Applications/audiveris/app-5.11.0/bin/Audiveris"
+./.venv/bin/python -m uvicorn main:app --reload --port 8000
+//for backend
+
+ cd "/Users/aaronchan/Documents/coba coding/sheet-to-number/frontend"
+npm run dev
+
+//for frontend
