@@ -36,16 +36,12 @@ BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
-# Folder permanen untuk memeriksa hasil internal Audiveris.
 DEBUG_DIR = BASE_DIR / "debug_audiveris"
 DEBUG_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR = BASE_DIR / "outputs"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-
-# ---------------------------------------------------------
 # AUDIVERIS
-# ---------------------------------------------------------
 
 def get_audiveris_command():
     command = os.getenv("AUDIVERIS_CMD", "audiveris")
@@ -55,10 +51,7 @@ def get_audiveris_command():
 
     return shutil.which(command)
 
-
-# ---------------------------------------------------------
 # KEY DETECTION
-# ---------------------------------------------------------
 
 def detect_key(score):
     """
@@ -95,10 +88,7 @@ def detect_key(score):
         "Nada dasar tidak dapat ditentukan dari partitur."
     )
 
-
-# ---------------------------------------------------------
 # NUMBER NOTATION
-# ---------------------------------------------------------
 
 def degree_for_pitch(pitch, tonic=None):
     """Map note letters to fixed Indonesian numeric notation (C-major reference).
@@ -140,10 +130,7 @@ def degree_for_pitch(pitch, tonic=None):
 
     return number
 
-
-# ---------------------------------------------------------
 # MUSICXML HELPERS
-# ---------------------------------------------------------
 
 def get_measure_number(element):
     """
@@ -189,7 +176,6 @@ def convert_element(element, tonic):
     duration = float(element.duration.quarterLength)
     offset = float(element.getOffsetInHierarchy(element.activeSite))
 
-    # Fallback offset jika struktur stream tidak biasa.
     if offset < 0:
         offset = float(element.offset)
 
@@ -253,10 +239,8 @@ def convert_element(element, tonic):
 
     return None
 
-
-# ---------------------------------------------------------
 # SCORE CONVERSION
-# ---------------------------------------------------------
+
 
 def convert_score(score):
     """
@@ -273,8 +257,6 @@ def convert_score(score):
     for index, part in enumerate(score.parts):
         events = []
 
-        # flatten() memudahkan pembacaan seluruh event
-        # tanpa menghilangkan urutan waktu.
         flattened = part.flatten()
 
         elements = sorted(
@@ -332,10 +314,7 @@ def convert_score(score):
         "totalEvents": total_events,
     }
 
-
-# ---------------------------------------------------------
 # AUDIVERIS NOTEHEAD COORDINATES + PDF ANNOTATION
-# ---------------------------------------------------------
 
 def local_tag(tag):
     """Nama tag XML tanpa namespace, kalau ada."""
@@ -457,10 +436,6 @@ def extract_noteheads(omr_path, fallback_key_fifths=0):
             local_accidentals = _local_accidentals_by_head(root, by_id)
             measure_map = _head_measure_map(root, parents, page_num)
 
-            # Audiveris staff IDs are ranked across the whole sheet, not reset to
-            # 1=treble / 2=bass for every system. Build a lookup from each physical
-            # staff ID to the clef and key signature stored in that staff's header.
-            # This is the important fix for lower staves in later systems.
             staff_metadata = {}
             for staff_node in elements:
                 if local_tag(staff_node.tag) != "staff":
@@ -523,16 +498,12 @@ def extract_noteheads(omr_path, fallback_key_fifths=0):
                         (child for child in staff_el if local_tag(child.tag) == "header"),
                         None,
                     )
-                # The head may not be nested beneath its <staff> container in every
-                # Audiveris XML version. Therefore resolve the physical staff using
-                # head @staff -> staff_metadata first; only then use ancestor headers.
+
                 fallback_fifths = int(fallback_key_fifths or 0)
                 staff_info = staff_metadata.get(str(staff_num), {})
                 clef_kind = staff_info.get("clef_kind")
                 staff_header_fifths = staff_info.get("key_fifths")
 
-                # If this head is nested in a staff, prefer its attached header when it
-                # has a real clef; the global staff-ID lookup handles detached heads.
                 fifths = fallback_fifths
                 if header is not None:
                     clef_el = next(
@@ -563,10 +534,7 @@ def extract_noteheads(omr_path, fallback_key_fifths=0):
                     if audiveris_fifths != 0 or fallback_fifths == 0:
                         fifths = audiveris_fifths
 
-                # Last-resort fallback for piano grand-staff scores: staff IDs are
-                # ranked top-to-bottom across the sheet, so even IDs are typically
-                # bass/lower staves and odd IDs treble/upper staves. Explicit clefs
-                # from staff_metadata always take priority over this heuristic.
+
                 if clef_kind is None:
                     clef_kind = "BASS" if staff_num % 2 == 0 else "TREBLE"
 
@@ -668,7 +636,6 @@ def draw_number_label(page, fitz, label, center_x, note_top, note_height, fontsi
         color=(0.88, 0.02, 0.16), overlay=True,
     )
 
-    # Baseline is the bottom of the text. Place octave dots around its center.
     radius = max(0.45, fontsize * 0.075)
     digit_center_x = x + text_width / 2.0
     if above:
@@ -697,7 +664,7 @@ def create_annotated_pdf(
     from a staff header. Visually review the output because OMR can misread symbols.
     """
     try:
-        import fitz  # PyMuPDF
+        import fitz  
         from PIL import Image
         import io
     except ImportError as exc:
@@ -737,9 +704,6 @@ def create_annotated_pdf(
             )
         heads = sort_heads_reading_order(heads)
 
-        # Generate each number from that notehead's staff position, clef and
-        # key signature. Do not consume a parallel note sequence: one missed OMR
-        # head must not shift every label that follows it.
         accidental_state = {}
         drawn = 0
         skipped = 0
@@ -757,9 +721,7 @@ def create_annotated_pdf(
             try:
                 detected_pitch = _staff_position_to_pitch(head, accidental_state)
                 label = degree_for_pitch(detected_pitch, tonic)
-                # Both hands use the same pitch-to-number mapping. The clef is used
-                # to identify the actual written pitch; do NOT shift bass degrees.
-                # This keeps a D note labelled 2 in either hand, regardless of octave.
+
                 if str(head.get("clef_kind", "")).upper() == "BASS":
                     bass_heads_labeled += 1
             except Exception as exc:
@@ -802,9 +764,8 @@ def create_annotated_pdf(
         original.close()
 
 
-# ---------------------------------------------------------
+
 # HEALTH CHECK
-# ---------------------------------------------------------
 
 @app.get("/api/health")
 def health():
@@ -817,9 +778,8 @@ def health():
     }
 
 
-# ---------------------------------------------------------
 # CONVERT ENDPOINT
-# ---------------------------------------------------------
+
 
 @app.post("/api/convert")
 async def convert_file(file: UploadFile = File(...)):
@@ -928,8 +888,6 @@ async def convert_file(file: UploadFile = File(...)):
             if path.is_file():
                 print(f" - {path.relative_to(root)}")
 
-        # Simpan semua file hasil Audiveris sebelum TemporaryDirectory dihapus.
-        # Folder terbaru selalu tersedia di backend/debug_audiveris/latest.
         debug_run = DEBUG_DIR / "latest"
         if debug_run.exists():
             shutil.rmtree(debug_run)
@@ -976,7 +934,6 @@ async def convert_file(file: UploadFile = File(...)):
 
         print(f"[CONVERT] Berhasil. Total event: {result_data['totalEvents']}")
 
-        # Create a PDF overlay from notehead coordinates in Audiveris' OMR.
         omr_candidates = sorted(debug_run.rglob("*.omr"))
         if not omr_candidates:
             raise HTTPException(
@@ -988,8 +945,7 @@ async def convert_file(file: UploadFile = File(...)):
         output_path = OUTPUT_DIR / output_name
         try:
             detected_key = detect_key(score)
-            # Fallback key-signature count from MusicXML. For example, D major
-            # has two sharps, so F in the score should be treated as F-sharp.
+
             fallback_key_fifths = int(getattr(detected_key, "sharps", 0) or 0)
             print(
                 f"[ANNOTATION KEY] detected={detected_key}; "
@@ -1034,7 +990,7 @@ async def convert_file(file: UploadFile = File(...)):
 
 @app.get("/api/download/{filename}")
 def download_annotated_pdf(filename: str):
-    # Prevent path traversal: only allow generated output basenames.
+
     if Path(filename).name != filename or not filename.startswith("annotated-") or not filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Nama file tidak valid.")
     path = OUTPUT_DIR / filename
